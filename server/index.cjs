@@ -186,19 +186,19 @@ const walletTransactionEngine = createWalletTransactionEngine(db)
    DATABASE QUERIES
 ========================================= */
 
-const findUserByEmail = db.prepare(`
-  SELECT
-    id,
-    full_name,
-    email,
-    password_hash,
-    role,
-    account_status,
-    email_verified,
-    created_at
-  FROM users
-  WHERE email = ?
-`)
+// const findUserByEmail = db.prepare(`
+//   SELECT
+//     id,
+//     full_name,
+//     email,
+//     password_hash,
+//     role,git add .
+//     account_status,
+//     email_verified,
+//     created_at
+//   FROM users
+//   WHERE email = ?
+// `)
 
 const findUserById = db.prepare(`
   SELECT
