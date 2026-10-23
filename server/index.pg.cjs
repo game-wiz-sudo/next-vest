@@ -1954,25 +1954,4 @@ app.patch('/api/admin/payout-requests/:id/paid', requireAuth, requireAdmin, asyn
   }
 })
 
-const server = app.listen(PORT, () => {
-  console.log(`NEXTVEST PostgreSQL backend listening on port ${PORT}`)
-})
-
-function shutdown(signal) {
-  console.log(`Received ${signal}. Shutting down PostgreSQL backend...`)
-
-  server.close(async () => {
-    try {
-      await db.end()
-      process.exit(0)
-    } catch (error) {
-      console.error('Shutdown error:', error.message)
-      process.exit(1)
-    }
-  })
-}
-
-process.on('SIGINT', () => shutdown('SIGINT'))
-process.on('SIGTERM', () => shutdown('SIGTERM'))
-
-console.log('PostgreSQL server startup completed.')
+module.exports = app
