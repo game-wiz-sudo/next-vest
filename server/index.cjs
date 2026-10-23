@@ -1,5 +1,6 @@
 
 const express = require('express')
+const { Pool } = require('pg');
 const path = require('path')
 const crypto = require('crypto')
 const Database = require('better-sqlite3')
@@ -17,8 +18,33 @@ dotenv.config({
 
 const app = express()
 
-app.get("/", (req, res) => {
-    res.send("NEXTVEST Backend is running successfully!");
+const pool = new Pool({
+    connectionString: process.env.DATABASE_URL,
+    ssl: process.env.DATABASE_URL
+        ? { rejectUnauthorized: false }
+        : false
+});
+
+pool.on('error', (err) => {
+    console.error('Unexpected PostgreSQL error:', err.message);
+});
+
+// Serve the built React frontend
+const frontendPath = path.join(__dirname, '..', 'dist');
+
+app.use(express.static(frontendPath));
+
+// Support React Router routes such as /login and /register
+app.get(/.*/, (req, res, next) => {
+    if (req.path.startsWith('/api/')) {
+        return next();
+    }
+
+    res.sendFile(path.join(frontendPath, 'index.html'), (err) => {
+        if (err) {
+            next(err);
+        }
+    });
 });
 
 const PORT = process.env.PORT || 5000
