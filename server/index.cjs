@@ -16,6 +16,11 @@ dotenv.config({
 })
 
 const app = express()
+
+app.get("/", (req, res) => {
+    res.send("NEXTVEST Backend is running successfully!");
+});
+
 const PORT = process.env.PORT || 5000
 
 if (
