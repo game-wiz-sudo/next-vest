@@ -186,19 +186,19 @@ const walletTransactionEngine = createWalletTransactionEngine(db)
    DATABASE QUERIES
 ========================================= */
 
-// const findUserByEmail = db.prepare(`
-//   SELECT
-//     id,
-//     full_name,
-//     email,
-//     password_hash,
-//     role,git add .
-//     account_status,
-//     email_verified,
-//     created_at
-//   FROM users
-//   WHERE email = ?
-// `)
+const findUserByEmail = db.prepare(`
+  SELECT
+    id,
+    full_name,
+    email,
+    password_hash,
+    role,
+    account_status,
+    email_verified,
+    created_at
+  FROM users
+  WHERE email = ?
+`)
 
 const findUserById = db.prepare(`
   SELECT
@@ -290,72 +290,6 @@ app.use('/api/auth', rateLimit({
 }))
 
 // =========================================
-// POSTGRESQL USER QUERIES
-// =========================================
-
-async function findUserByEmail(email) {
-  const result = await db.query(
-    `SELECT
-      id,
-      full_name,
-      email,
-      password_hash,
-      role,
-      account_status,
-      email_verified,
-      created_at
-     FROM users
-     WHERE email = $1`,
-    [email]
-  )
-
-  return result.rows[0] || null
-}
-
-async function findUserById(id) {
-  const result = await db.query(
-    `SELECT
-      id,
-      full_name,
-      email,
-      password_hash,
-      role,
-      account_status,
-      email_verified,
-      created_at
-     FROM users
-     WHERE id = $1`,
-    [id]
-  )
-
-  return result.rows[0] || null
-}
-
-async function createUser(fullName, email, passwordHash) {
-  const result = await db.query(
-    `INSERT INTO users (
-      full_name,
-      email,
-      password_hash
-    )
-    VALUES ($1, $2, $3)
-    RETURNING
-      id,
-      full_name,
-      email,
-      password_hash,
-      role,
-      account_status,
-      email_verified,
-      created_at`,
-    [fullName, email, passwordHash]
-  )
-
-  return result.rows[0]
-}
-
-
-// =========================================
 // USER RESPONSE FORMAT
 // =========================================
 
@@ -373,129 +307,6 @@ function publicUser(user) {
 
 
 // =========================================
-// EMAIL VERIFICATION HELPERS
-// =========================================
-
-let resendClientPromise
-
-async function getResendClient() {
-  if (!resendClientPromise) {
-    resendClientPromise = import('resend').then(
-      ({ Resend }) => {
-        return new Resend(process.env.RESEND_API_KEY)
-      }
-    )
-  }
-
-  return resendClientPromise
-}
-
-
-function hashVerificationCode(userId, code) {
-  return crypto
-    .createHmac('sha256', process.env.JWT_SECRET)
-    .update(`${userId}:${code}`)
-    .digest('hex')
-}
-
-
-function escapeHtml(value) {
-  return String(value).replace(/[&<>"']/g, character => ({
-    '&': '&amp;',
-    '<': '&lt;',
-    '>': '&gt;',
-    '"': '&quot;',
-    "'": '&#39;',
-  })[character])
-}
-
-
-async function sendVerificationEmail(user) {
-  const code = crypto
-    .randomInt(0, 1000000)
-    .toString()
-    .padStart(6, '0')
-
-  const codeHash = hashVerificationCode(user.id, code)
-  const now = Date.now()
-  const expiresAt = now + 10 * 60 * 1000
-
-  const resend = await getResendClient()
-
-  const { error } = await resend.emails.send({
-    from: process.env.EMAIL_FROM,
-    to: user.email,
-    subject: 'Your NEXTVEST verification code',
-
-    text: [
-      `Hello ${user.full_name},`,
-      '',
-      'Thank you for creating a NEXTVEST account.',
-      '',
-      `Your email verification code is: ${code}`,
-      '',
-      'Enter this code on the NEXTVEST verification screen.',
-      'This code expires in 10 minutes and can only be used once.',
-      '',
-      'If you did not create this account, you can ignore this email.',
-    ].join('\n'),
-
-    html: `
-      <div style="font-family:Arial,sans-serif;max-width:560px;margin:auto;padding:28px;color:#17231c">
-        <h1 style="color:#059669">NEXTVEST</h1>
-        <h2>Verify your email address</h2>
-        <p>Hello ${escapeHtml(user.full_name)},</p>
-        <p>Thank you for creating a NEXTVEST account. Enter this code on the NEXTVEST verification screen:</p>
-        <div style="margin:28px 0;padding:18px;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:10px;text-align:center">
-          <span style="font-size:32px;font-weight:700;letter-spacing:8px;color:#047857">${code}</span>
-        </div>
-        <p>This code expires in <strong>10 minutes</strong> and can only be used once.</p>
-        <p style="font-size:12px;color:#64748b">If you did not create this account, you can ignore this email.</p>
-      </div>
-    `,
-  })
-
-  if (error) {
-    console.error('Resend delivery error:', error.message)
-
-    throw new Error(
-      'Unable to send the verification email.'
-    )
-  }
-
-  // Save the code only after Resend confirms delivery.
-  const client = await db.connect()
-
-  try {
-    await client.query('BEGIN')
-
-    await client.query(
-      `UPDATE email_verification_tokens
-       SET used_at = $1
-       WHERE user_id = $2
-       AND used_at IS NULL`,
-      [now, user.id]
-    )
-
-    await client.query(
-      `INSERT INTO email_verification_tokens (
-        user_id,
-        token_hash,
-        expires_at
-      )
-      VALUES ($1, $2, $3)`,
-      [user.id, codeHash, expiresAt]
-    )
-
-    await client.query('COMMIT')
-  } catch (error) {
-    await client.query('ROLLBACK')
-    throw error
-  } finally {
-    client.release()
-  }
-}
-
 /* =========================================
    AUTHENTICATION HELPERS
 ========================================= */
@@ -533,17 +344,6 @@ function setAuthCookie(res, user) {
   )
 }
 
-function publicUser(user) {
-  return {
-    id: user.id,
-    fullName: user.full_name,
-    email: user.email,
-    role: user.role,
-    accountStatus: user.account_status,
-    emailVerified: Boolean(user.email_verified),
-    createdAt: user.created_at,
-  }
-}
 
 function requireAuth(req, res, next) {
   const token = req.cookies[COOKIE_NAME]
