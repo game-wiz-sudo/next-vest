@@ -2,15 +2,10 @@
 "version": 2,
 "buildCommand": "npm run build",
 "outputDirectory": "dist",
-"functions": {
-"api/index.cjs": {
-"maxDuration": 30
-}
-},
 "rewrites": [
 {
 "source": "/api/(.*)",
-"destination": "/api"
+"destination": "/api/index.cjs"
 },
 {
 "source": "/(.*)",
