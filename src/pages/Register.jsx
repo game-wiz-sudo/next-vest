@@ -62,7 +62,7 @@ function Register() {
       const registeredEmail = email.trim().toLowerCase()
 
       const response = await fetch(
-        '/api/auth/register',
+        `${API_BASE_URL}/api/auth/register`,
         {
           method: 'POST',
           headers: {

@@ -1,6 +1,12 @@
 import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 
+const API_BASE_URL = import.meta.env.VITE_API_URL?.replace(/\/$/, '')
+
+if (!API_BASE_URL) {
+  console.error('VITE_API_URL is missing from your environment variables.')
+}
+
 import {
   LayoutDashboard,
   Wallet,
@@ -114,7 +120,7 @@ function Dashboard() {
     async function loadCurrentUser() {
       try {
         const response = await fetch(
-          'http://localhost:5000/api/auth/me',
+          `${API_BASE_URL}/api/auth/me`,
           {
             method: 'GET',
             credentials: 'include',
@@ -134,23 +140,23 @@ function Dashboard() {
 
         try {
           const [walletResponse, transactionsResponse, plansResponse, investmentsResponse, payoutsResponse] = await Promise.all([
-            fetch('http://localhost:5000/api/wallet', {
+            fetch(`${API_BASE_URL}/api/wallet`, {
               method: 'GET',
               credentials: 'include',
             }),
-            fetch('http://localhost:5000/api/transactions?limit=10', {
+            fetch(`${API_BASE_URL}/api/transactions?limit=10`, {
               method: 'GET',
               credentials: 'include',
             }),
-            fetch('http://localhost:5000/api/investment-plans', {
+            fetch(`${API_BASE_URL}/api/investment-plans`, {
               method: 'GET',
               credentials: 'include',
             }),
-            fetch('http://localhost:5000/api/investments', {
+            fetch(`${API_BASE_URL}/api/investments`, {
               method: 'GET',
               credentials: 'include',
             }),
-            fetch('http://localhost:5000/api/payout-requests', { method: 'GET', credentials: 'include' }),
+            fetch(`${API_BASE_URL}/api/payout-requests`, { method: 'GET', credentials: 'include' }),
           ])
 
           if (!walletResponse.ok || !transactionsResponse.ok) {
@@ -200,7 +206,7 @@ function Dashboard() {
 
     try {
       await fetch(
-        'http://localhost:5000/api/auth/logout',
+        `${API_BASE_URL}/api/auth/logout`,
         {
           method: 'POST',
           credentials: 'include',
@@ -252,7 +258,7 @@ function Dashboard() {
 
     setInvestmentLoading(true)
     try {
-      const response = await fetch('http://localhost:5000/api/investments', {
+      const response = await fetch(`${API_BASE_URL}/api/investments`, {
         method: 'POST',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
@@ -270,9 +276,9 @@ function Dashboard() {
       }
 
       const [investmentsResponse, walletResponse, transactionsResponse] = await Promise.all([
-        fetch('http://localhost:5000/api/investments', { credentials: 'include' }),
-        fetch('http://localhost:5000/api/wallet', { credentials: 'include' }),
-        fetch('http://localhost:5000/api/transactions?limit=10', { credentials: 'include' }),
+        fetch(`${API_BASE_URL}/api/investments`, { credentials: 'include' }),
+        fetch(`${API_BASE_URL}/api/wallet`, { credentials: 'include' }),
+        fetch(`${API_BASE_URL}/api/transactions?limit=10`, { credentials: 'include' }),
       ])
       if (investmentsResponse.ok) {
         const result = await investmentsResponse.json()
@@ -319,7 +325,7 @@ function Dashboard() {
     }
     setPayoutLoading(true)
     try {
-      const response = await fetch('http://localhost:5000/api/payout-requests', {
+      const response = await fetch(`${API_BASE_URL}/api/payout-requests`, {
         method: 'POST', credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ investmentId: Number(payoutInvestment.id), bankName: payoutBankName.trim(), accountName: payoutAccountName.trim(), accountNumber: payoutAccountNumber.trim() }),

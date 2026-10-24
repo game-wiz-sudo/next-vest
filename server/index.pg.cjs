@@ -1954,6 +1954,3 @@ app.patch('/api/admin/payout-requests/:id/paid', requireAuth, requireAdmin, asyn
   }
 })
 
- const app = require('../server/index.pg.cjs');
-  
- module.exports = app;
