@@ -1954,3 +1954,9 @@ app.patch('/api/admin/payout-requests/:id/paid', requireAuth, requireAdmin, asyn
   }
 })
 
+// // Start the NEXTVEST backend server
+// const PORT = process.env.PORT || 5000;
+
+app.listen(PORT, '0.0.0.0', () => {
+  console.log(`NEXTVEST backend running on port ${PORT}`);
+});
