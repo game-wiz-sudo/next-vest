@@ -100,16 +100,21 @@ function Register() {
       setConfirmPassword('')
       setAcceptedTerms(false)
 
-      navigate(
-        `/verify-email?email=${encodeURIComponent(registeredEmail)}`,
-        {
-          state: {
-            message:
-              data.message ||
-              'Your account has been created. Check your email for your verification code.',
-          },
-        }
-      )
+      setSuccess(
+  data.message || 'Your NEXTVEST account has been created successfully.'
+)
+
+setFullName('')
+setEmail('')
+setPassword('')
+setConfirmPassword('')
+setAcceptedTerms(false)
+
+navigate('/login', {
+  state: {
+    message: 'Your account has been created successfully. Please sign in.',
+  },
+})
     } catch (error) {
       setError(
         'Unable to connect to NEXTVEST. Please make sure the backend server is running and try again.'

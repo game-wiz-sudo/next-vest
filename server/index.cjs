@@ -70,12 +70,6 @@ if (
   )
 }
 
-if (!process.env.RESEND_API_KEY || !process.env.EMAIL_FROM) {
-  throw new Error(
-    'Please configure RESEND_API_KEY and EMAIL_FROM in server/.env'
-  )
-}
-
 /* =========================================
    DATABASE
 ========================================= */
@@ -248,9 +242,10 @@ const createUser = db.prepare(`
   INSERT INTO users (
     full_name,
     email,
-    password_hash
+    password_hash,
+    email_verified
   )
-  VALUES (?, ?, ?)
+  VALUES (?, ?, ?, 1)
 `)
 
 const createVerificationToken = db.prepare(`
@@ -412,14 +407,6 @@ function requireAuth(req, res, next) {
 
       return res.status(403).json({
         message: 'Your account is not active.',
-      })
-    }
-
-    if (user.email_verified !== 1) {
-      res.clearCookie(COOKIE_NAME, COOKIE_OPTIONS)
-
-      return res.status(403).json({
-        message: 'Please verify your email address.',
       })
     }
 
@@ -653,167 +640,15 @@ app.post('/api/auth/register', async (req, res, next) => {
       result.lastInsertRowid
     )
 
-    try {
-      await sendVerificationEmail(user)
-
-      return res.status(201).json({
-        message:
-          'Your account has been created. Check your inbox for your six-digit NEXTVEST verification code. The code expires in 10 minutes.',
-        emailVerificationRequired: true,
-        authenticationEnabled: false,
-      })
-    } catch (emailError) {
-      console.error(
-        'Verification email could not be sent:',
-        emailError.message
-      )
-
-      return res.status(503).json({
-        message:
-          'Your account was created, but we could not send your verification email. Please request another verification email.',
-        emailVerificationRequired: true,
-        canResendVerification: true,
-      })
-    }
+    return res.status(201).json({
+      message: 'Your NEXTVEST account has been created successfully.',
+      emailVerificationRequired: false,
+      authenticationEnabled: true,
+    })
   } catch (error) {
     next(error)
   }
 })
-
-/* =========================================
-   VERIFY EMAIL
-========================================= */
-
-app.post(
-  '/api/auth/verify-email',
-  (req, res, next) => {
-    try {
-      const { email, code } = req.body || {}
-
-      if (
-        typeof email !== 'string' ||
-        email.trim().length > 254 ||
-        typeof code !== 'string' ||
-        !/^\d{6}$/.test(code)
-      ) {
-        return res.status(400).json({
-          message: 'Enter your email address and the six-digit verification code.',
-        })
-      }
-
-      const cleanEmail = email.trim().toLowerCase()
-      const user = findUserByEmail.get(cleanEmail)
-
-      if (!user || user.email_verified === 1) {
-        return res.status(400).json({
-          message: 'This verification code is invalid or has expired. Request a new code.',
-          canResendVerification: true,
-        })
-      }
-
-      const codeHash = hashVerificationCode(user.id, code)
-      const verification = findVerificationToken.get(codeHash)
-
-      if (
-        !verification ||
-        verification.user_id !== user.id ||
-        verification.used_at !== null ||
-        verification.expires_at <= Date.now()
-      ) {
-        return res.status(400).json({
-          message: 'This verification code is invalid or has expired. Request a new code.',
-          canResendVerification: true,
-        })
-      }
-
-      const now = Date.now()
-
-      const verifyTransaction = db.transaction(() => {
-        const result = markVerificationTokenUsed.run(
-          now,
-          codeHash,
-          now
-        )
-
-        if (result.changes !== 1) {
-          return false
-        }
-
-        markEmailVerified.run(user.id)
-        return true
-      })
-
-      if (!verifyTransaction()) {
-        return res.status(400).json({
-          message: 'This verification code is invalid or has expired. Request a new code.',
-          canResendVerification: true,
-        })
-      }
-
-      return res.json({
-        message: 'Your email address has been verified successfully. You can now sign in.',
-        emailVerified: true,
-      })
-    } catch (error) {
-      next(error)
-    }
-  }
-)
-
-/* =========================================
-   RESEND VERIFICATION EMAIL
-========================================= */
-
-app.post(
-  '/api/auth/resend-verification',
-  async (req, res, next) => {
-    try {
-      const { email } = req.body || {}
-
-      if (
-        typeof email !== 'string' ||
-        email.trim().length > 254
-      ) {
-        return res.status(400).json({
-          message: 'Please enter a valid email address.',
-        })
-      }
-
-      const cleanEmail = email.trim().toLowerCase()
-
-      const genericMessage =
-        'If an unverified account exists for that address, a verification email will be sent.'
-
-      const user = findUserByEmail.get(cleanEmail)
-
-      if (!user || user.email_verified === 1) {
-        return res.json({
-          message: genericMessage,
-        })
-      }
-
-      try {
-        await sendVerificationEmail(user)
-      } catch (emailError) {
-        console.error(
-          'Resend verification failed:',
-          emailError.message
-        )
-
-        return res.status(503).json({
-          message:
-            'We could not send the verification email right now. Please try again later.',
-        })
-      }
-
-      return res.json({
-        message: genericMessage,
-      })
-    } catch (error) {
-      next(error)
-    }
-  }
-)
 
 /* =========================================
    LOGIN
@@ -856,15 +691,6 @@ app.post('/api/auth/login', async (req, res, next) => {
     if (user.account_status !== 'active') {
       return res.status(403).json({
         message: 'Your account is not active.',
-      })
-    }
-
-    if (user.email_verified !== 1) {
-      return res.status(403).json({
-        message:
-          'Please verify your email address before signing in.',
-        emailVerificationRequired: true,
-        canResendVerification: true,
       })
     }
 
@@ -1307,7 +1133,7 @@ const server = app.listen(PORT, () => {
   console.log(`Health: http://localhost:${PORT}/api/health`)
   console.log('Database: Local SQLite')
   console.log('Wallet engine: Atomic transactions + ledger enabled')
-  console.log('Email: Resend (6-digit verification codes)')
+  console.log('Email verification: Disabled')
   console.log('Payments: Paystack initialization + server-side verification')
   console.log('================================')
   console.log('')
